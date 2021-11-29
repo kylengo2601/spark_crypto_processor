@@ -30,20 +30,27 @@ object SparkWordCount {
     val threshold = args(1).toInt
 
     // Input trade data
-    val rddFromFile = sc.textFile("projects/spark/input/BNBUSDT-trades-2019-01.csv")
-    val rdd = rddFromFile.map(f=>{
-        f.split(",")
-    })
-
+    val df = spark.read.csv("projects/spark/input/BNBUSDT-trades-2019-01.csv")
 
     // Process UNIX milisecond-timestamps to human-readable dates
-    val df1 = df.withColumn("_c4", date_format(to_utc_timestamp(from_unixtime(col("_c4")/1000), "EST"), "MM-dd-yyyy")).withColumn("_c2", $"_c2".cast(FloatType)).withColumn("_c3", $"_c3".cast(FloatType))
+    val df1 = df.withColumn("_c4", date_format(
+      to_utc_timestamp(from_unixtime(col("_c4")/1000), "EST"), "MM-dd-yyyy"))
+    .withColumn("_c2", $"_c2".cast(FloatType))
+    .withColumn("_c3", $"_c3".cast(FloatType))
 
-    val totalQuantityDf = df1.groupBy("_c4").sum("_c2").withColumnRenamed("sum(_c2)", "totalQuantityPerDay")
-    val totalExchangeDf = df1.groupBy("_c4").sum("_c3").withColumnRenamed("sum(_c3)", "totalExchangePerDay").withColumnRenamed("_c4", "date")
+    val totalQuantityDf = df1.groupBy("_c4")
+    .sum("_c2")
+    .withColumnRenamed("sum(_c2)", "totalQuantityPerDay")
+    
+    val totalExchangeDf = df1.groupBy("_c4")
+    .sum("_c3")
+    .withColumnRenamed("sum(_c3)", "totalExchangePerDay")
+    .withColumnRenamed("_c4", "date")
 
     // Output final data
-    val finalDf = totalQuantityDf.join(totalExchangeDf, $"_c4" === $"date").withColumn("pricePerDay", $"totalExchangePerDay" / $"totalQuantityPerDay").drop("_c4")
+    val finalDf = totalQuantityDf.join(totalExchangeDf, $"_c4" === $"date")
+    .withColumn("pricePerDay", $"totalExchangePerDay" / $"totalQuantityPerDay")
+    .drop("_c4")
     
    // Write DataFrame data to CSV file
    finalDf.write.csv("projects/spark/output/BNBUSDT-trades-2019-01.csv") 
